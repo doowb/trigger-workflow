@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { triggerWorkflow, waitForCompletion } from './dist/index.mjs';
 
 async function main() {

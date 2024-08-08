@@ -17,8 +17,8 @@ interface WaitForWorkflowOptions {
   interval?: number; // milliseconds
 }
 
-export const getLatestWorkflowRun = async (options: TriggerWorkflowOptions): Promise<number> => {
-  const { owner, repo, workflow_id, token } = options;
+export const getLatestWorkflowRun = async (options: TriggerWorkflowOptions, attempt: number = 0): Promise<number> => {
+  const { after, owner, repo, workflow_id, token, interval = 5_000 } = options;
   const octokit = new Octokit({ auth: token });
 
   // Fetch the latest workflow run to get the `run_id`
@@ -29,8 +29,20 @@ export const getLatestWorkflowRun = async (options: TriggerWorkflowOptions): Pro
     per_page: 1
   });
 
+  if (runs.data.workflow_runs.length === 0 && attempt >= 3) {
+    return null;
+  }
+
   if (runs.data.workflow_runs.length > 0) {
-    return runs.data.workflow_runs[0].id;
+    const run = runs.data.workflow_runs[0];
+    if (new Date(run.created_at).getTime() >= after) {
+      return run.id;
+    }
+
+    // If the run is older than the `after` timestamp, wait for a new run
+    console.log('Waiting for a new workflow run...');
+    await new Promise(resolve => setTimeout(resolve, interval));
+    return getLatestWorkflowRun(options, attempt + 1);
   }
 
   return null;
@@ -38,6 +50,7 @@ export const getLatestWorkflowRun = async (options: TriggerWorkflowOptions): Pro
 
 export const triggerWorkflow = async (options: TriggerWorkflowOptions): Promise<number> => {
   const { owner, repo, workflow_id, ref, inputs, token } = options;
+  const after = Date.now();
 
   const octokit = new Octokit({ auth: token });
   const response = await octokit.actions.createWorkflowDispatch({
@@ -52,13 +65,18 @@ export const triggerWorkflow = async (options: TriggerWorkflowOptions): Promise<
     throw new Error(`Failed to trigger workflow: ${response.status}`);
   }
 
-  return getLatestWorkflowRun(options);
+  return getLatestWorkflowRun({ after, ...options });
 };
 
 export const waitForCompletion = async (options: WaitForWorkflowOptions): Promise<void> => {
   const { owner, repo, token, run_id, interval = 5_000 } = options;
 
   const octokit = new Octokit({ auth: token });
+  const differed = {};
+  const promise = new Promise<void>((resolve, reject) => {
+    differed.resolve = resolve;
+    differed.reject = reject;
+  });
 
   const checkRun = async (): Promise<void> => {
     const { data: run } = await octokit.actions.getWorkflowRun({
@@ -73,11 +91,13 @@ export const waitForCompletion = async (options: WaitForWorkflowOptions): Promis
       } else {
         console.log(`Workflow run ${run_id} completed with conclusion: ${run.conclusion}`);
       }
+      differed.resolve(run);
     } else {
       console.log(`Workflow run ${run_id} is still in progress...`);
       setTimeout(checkRun, interval);
     }
   };
 
-  await checkRun();
+  checkRun();
+  return promise;
 };

@@ -25,6 +25,7 @@
     "@types/node": "^20.12.7",
     "@typescript-eslint/eslint-plugin": "^8.0.1",
     "@typescript-eslint/parser": "^8.0.1",
+    "dotenv": "^16.4.5",
     "esbuild-register": "^3.5.0",
     "eslint": "^8.57.0",
     "gulp-format-md": "^2.0.0",
