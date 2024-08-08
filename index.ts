@@ -55,7 +55,7 @@ export const triggerWorkflow = async (options: TriggerWorkflowOptions): Promise<
   return getLatestWorkflowRun(options);
 };
 
-export const waitForCompletion = (options: WaitForWorkflowOptions): Promise<void> => {
+export const waitForCompletion = async (options: WaitForWorkflowOptions): Promise<void> => {
   const { owner, repo, token, run_id, interval = 5_000 } = options;
 
   const octokit = new Octokit({ auth: token });

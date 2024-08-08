@@ -9,16 +9,26 @@
     "moduleResolution": "NodeNext",
     "module": "NodeNext",
     "forceConsistentCasingInFileNames": true,
-    "lib": ["ES2022"],
+    "lib": [
+      "ES2022"
+    ],
     "resolveJsonModule": true,
     "strict": true,
     "target": "ES2022",
-    "types": ["node"],
-    "paths": { "~/*": ["src/*"] }
+    "types": [
+      "node"
+    ]
   },
   "ts-node": {
     "transpileOnly": true
   },
-  "include": ["*.ts"],
-  "exclude": ["node_modules", "dist", "tmp"]
+  "include": [
+    "*.ts"
+  ],
+  "exclude": [
+    "example.mjs",
+    "node_modules",
+    "dist",
+    "tmp"
+  ]
 }

@@ -1,11 +1,18 @@
 {
   "name": "trigger-workflow",
   "version": "0.0.1",
-  "main": "dist/index.js",
-  "module": "dist/index.mjs",
+  "homepage": "https://github.com/doowb/trigger-workflow",
+  "author": "Brian Woodward (https://github.com/doowb)",
+  "repository": "doowb/trigger-workflow",
+  "bugs": {
+    "url": "https://github.com/doowb/trigger-workflow/issues"
+  },
+  "license": "MIT",
   "files": [
     "dist"
   ],
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
   "scripts": {
     "eslint": "npx eslint --ext .ts .",
     "test": "ts-mocha -r esbuild-register 'test/**/*.ts'",
