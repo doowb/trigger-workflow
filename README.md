@@ -1,6 +1,8 @@
 # trigger-workflow [![NPM version](https://img.shields.io/npm/v/trigger-workflow.svg?style=flat)](https://www.npmjs.com/package/trigger-workflow) [![NPM monthly downloads](https://img.shields.io/npm/dm/trigger-workflow.svg?style=flat)](https://npmjs.org/package/trigger-workflow) [![NPM total downloads](https://img.shields.io/npm/dt/trigger-workflow.svg?style=flat)](https://npmjs.org/package/trigger-workflow)
 
-> Please consider following this project's author, [Brian Woodward](https://github.com/doowb), and consider starring the project to show your :heart: and support.
+> Easily trigger GitHub workflows, get latest workflow runs, and wait for workflow runs to complete.
+
+Please consider following this project's author, [Brian Woodward](https://github.com/doowb), and consider starring the project to show your :heart: and support.
 
 ## Install
 
