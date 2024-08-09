@@ -2,7 +2,13 @@
   "name": "trigger-workflow",
   "version": "0.0.1",
   "homepage": "https://github.com/doowb/trigger-workflow",
-  "author": "Brian Woodward (https://github.com/doowb)",
+  "author": {
+    "name": "Brian Woodward",
+    "url": "https://github.com/doowb",
+    "username": "doowb",
+    "twitter": "doowb",
+    "linkedin": "woodwardbrian"
+  },
   "repository": "doowb/trigger-workflow",
   "bugs": {
     "url": "https://github.com/doowb/trigger-workflow/issues"
