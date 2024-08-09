@@ -29,8 +29,8 @@ export const getLatestWorkflowRun = async (options: TriggerWorkflowOptions, atte
     per_page: 1
   });
 
-  if (runs.data.workflow_runs.length === 0 && attempt >= 3) {
-    return null;
+  if (runs.data.workflow_runs.length === 0) {
+    return attempt >= 3 ? null : getLatestWorkflowRun(options, attempt + 1);
   }
 
   if (runs.data.workflow_runs.length > 0) {
