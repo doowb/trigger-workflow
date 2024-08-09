@@ -10,6 +10,10 @@
     "twitter": "doowb",
     "linkedin": "woodwardbrian"
   },
+  "contributors": [
+    "Brian Woodward (https://twitter.com/doowb)",
+    "Jon Schlinkert (https://www.linkedin.com/in/jonschlinkert)"
+  ],
   "repository": "doowb/trigger-workflow",
   "bugs": {
     "url": "https://github.com/doowb/trigger-workflow/issues"
@@ -42,6 +46,10 @@
     "tsup": "^8.0.2",
     "typescript": "^5.4.5"
   },
+  "keywords": [
+    "trigger",
+    "workflow"
+  ],
   "verb": {
     "toc": false,
     "layout": "default",
