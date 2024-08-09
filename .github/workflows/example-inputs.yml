@@ -1,0 +1,19 @@
+name: Example Inputs Workflow
+
+on:
+  workflow_dispatch:
+    inputs:
+      message:
+        description: 'Message to print'
+        required: true
+
+jobs:
+  example:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Print Message
+        run: echo "${{ github.event.inputs.message }}"
