@@ -1,7 +1,7 @@
 {
   "name": "trigger-workflow",
   "description": "Easily trigger GitHub workflows, get latest workflow runs, and wait for workflow runs to complete.",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "homepage": "https://github.com/doowb/trigger-workflow",
   "author": {
     "name": "Brian Woodward",
