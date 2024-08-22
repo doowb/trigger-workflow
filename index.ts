@@ -1,3 +1,4 @@
+import debug from 'debug';
 import { Octokit } from '@octokit/rest';
 
 interface TriggerWorkflowOptions {
@@ -17,6 +18,10 @@ interface WaitForWorkflowOptions {
   interval?: number; // milliseconds
 }
 
+const log = debug('trigger-workflow');
+
+const pause = (ms: number): Promise<void> => new Promise(resolve => setTimeout(resolve, ms));
+
 export const getLatestWorkflowRun = async (options: TriggerWorkflowOptions, attempt: number = 0): Promise<number> => {
   const { after, owner, repo, workflow_id, token, interval = 5_000 } = options;
   const octokit = new Octokit({ auth: token });
@@ -30,7 +35,13 @@ export const getLatestWorkflowRun = async (options: TriggerWorkflowOptions, atte
   });
 
   if (runs.data.workflow_runs.length === 0) {
-    return attempt >= 3 ? null : getLatestWorkflowRun(options, attempt + 1);
+    if (attempt >= 3) {
+      return null;
+    }
+
+    log('Waiting for a new workflow run...');
+    await pause(interval);
+    return getLatestWorkflowRun(options, attempt + 1);
   }
 
   if (runs.data.workflow_runs.length > 0) {
@@ -40,8 +51,8 @@ export const getLatestWorkflowRun = async (options: TriggerWorkflowOptions, atte
     }
 
     // If the run is older than the `after` timestamp, wait for a new run
-    console.log('Waiting for a new workflow run...');
-    await new Promise(resolve => setTimeout(resolve, interval));
+    log('Waiting for a new workflow run...');
+    await pause(interval);
     return getLatestWorkflowRun(options, attempt + 1);
   }
 
@@ -87,13 +98,13 @@ export const waitForCompletion = async (options: WaitForWorkflowOptions): Promis
 
     if (run.status === 'completed') {
       if (run.conclusion === 'success') {
-        console.log(`Workflow run ${run_id} completed successfully`);
+        log(`Workflow run ${run_id} completed successfully`);
       } else {
-        console.log(`Workflow run ${run_id} completed with conclusion: ${run.conclusion}`);
+        log(`Workflow run ${run_id} completed with conclusion: ${run.conclusion}`);
       }
       differed.resolve(run);
     } else {
-      console.log(`Workflow run ${run_id} is still in progress...`);
+      log(`Workflow run ${run_id} is still in progress...`);
       setTimeout(checkRun, interval);
     }
   };

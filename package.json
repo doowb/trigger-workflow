@@ -30,7 +30,8 @@
     "tsup": "npx tsup"
   },
   "dependencies": {
-    "@octokit/rest": "^21.0.1"
+    "@octokit/rest": "^21.0.1",
+    "debug": "^4.3.6"
   },
   "devDependencies": {
     "@types/node": "^20.12.7",
