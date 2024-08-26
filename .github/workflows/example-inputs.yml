@@ -3,6 +3,8 @@ name: Example Inputs Workflow
 on:
   workflow_dispatch:
     inputs:
+      trigger_id:
+        description: 'ID used to detect the correct workflow run'
       message:
         description: 'Message to print'
         required: true

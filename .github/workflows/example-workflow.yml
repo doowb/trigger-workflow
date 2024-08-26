@@ -2,6 +2,9 @@ name: Example Workflow
 
 on:
   workflow_dispatch:
+    inputs:
+      trigger_id:
+        description: 'ID used to detect the correct workflow run'
 
 jobs:
   build:
