@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import debug from 'debug';
 import { Octokit } from '@octokit/rest';
 
@@ -8,6 +9,9 @@ interface TriggerWorkflowOptions {
   ref: string;
   inputs?: Record<string, unknown>; // updated type for inputs
   token: string;
+  after?: number; // timestamp
+  interval?: number; // milliseconds
+  max_attempts?: number; // number of attempts to find a new run
 }
 
 interface WaitForWorkflowOptions {
@@ -20,10 +24,39 @@ interface WaitForWorkflowOptions {
 
 const log = debug('trigger-workflow');
 
+const createId = (): string => {
+  return randomUUID();
+};
+
 const pause = (ms: number): Promise<void> => new Promise(resolve => setTimeout(resolve, ms));
 
+const addMinutes = (date: Date, minutes: number): Date => {
+  return new Date(date.getTime() + minutes * 60000);
+};
+
+const findTriggerJob = async (octokit: Octokit, owner: string, repo: string, run_id: number, trigger_id: string): Promise<number> => {
+  const { data } = await octokit.actions.listJobsForWorkflowRun({
+    owner,
+    repo,
+    run_id
+  });
+
+  if (data.total_count > 0) {
+    // find the job with a step that matches the trigger_id
+    const job = data.jobs.find(job => {
+      return job.steps.find(step => step.name === trigger_id);
+    });
+
+    if (job) {
+      log('Found job matching trigger id:', job.id);
+      return job;
+    }
+  }
+};
+
 export const getLatestWorkflowRun = async (options: TriggerWorkflowOptions, attempt: number = 0): Promise<number> => {
-  const { after, owner, repo, workflow_id, token, interval = 5_000 } = options;
+  const { after, inputs = {}, owner, repo, workflow_id, token, interval = 5_000, max_attempts = 5 } = options;
+  const { trigger_id } = inputs;
   const octokit = new Octokit({ auth: token });
 
   // Fetch the latest workflow run to get the `run_id`
@@ -31,11 +64,12 @@ export const getLatestWorkflowRun = async (options: TriggerWorkflowOptions, atte
     owner,
     repo,
     workflow_id,
-    per_page: 1
+    per_page: 100
   });
 
   if (runs.data.workflow_runs.length === 0) {
-    if (attempt >= 3) {
+    if (attempt >= max_attempts) {
+      log('Max attempts reached. Exiting...');
       return null;
     }
 
@@ -45,9 +79,21 @@ export const getLatestWorkflowRun = async (options: TriggerWorkflowOptions, atte
   }
 
   if (runs.data.workflow_runs.length > 0) {
-    const run = runs.data.workflow_runs[0];
-    if (new Date(run.created_at).getTime() >= after) {
-      return run.id;
+    for (const run of runs.data.workflow_runs) {
+      if (new Date(run.created_at).getTime() >= after) {
+        log('Potential run ID:', run.id);
+        const job = await findTriggerJob(octokit, owner, repo, run.id, trigger_id);
+        if (job) {
+          return run.id;
+        }
+
+        // if max attempts have been reach, the trigger id might not have been set on a job
+        // so we can just return the run id
+        if (attempt >= max_attempts) {
+          log('Max attempts reached. Using most recent run id...');
+          return run.id;
+        }
+      }
     }
 
     // If the run is older than the `after` timestamp, wait for a new run
@@ -60,10 +106,17 @@ export const getLatestWorkflowRun = async (options: TriggerWorkflowOptions, atte
 };
 
 export const triggerWorkflow = async (options: TriggerWorkflowOptions): Promise<number> => {
-  const { owner, repo, workflow_id, ref, inputs, token } = options;
-  const after = Date.now();
+  const { owner, repo, workflow_id, ref, token } = options;
+  const after = addMinutes(new Date(), -5).getTime();
+
+  const inputs = {
+    trigger_id: createId(),
+    ...options.inputs
+  };
 
   const octokit = new Octokit({ auth: token });
+
+  log(`Triggering workflow "${workflow_id}" with trigger id:`, inputs.trigger_id);
   const response = await octokit.actions.createWorkflowDispatch({
     owner,
     repo,
@@ -76,7 +129,7 @@ export const triggerWorkflow = async (options: TriggerWorkflowOptions): Promise<
     throw new Error(`Failed to trigger workflow: ${response.status}`);
   }
 
-  return getLatestWorkflowRun({ after, ...options });
+  return getLatestWorkflowRun({ after, ...options, inputs });
 };
 
 export const waitForCompletion = async (options: WaitForWorkflowOptions): Promise<void> => {
