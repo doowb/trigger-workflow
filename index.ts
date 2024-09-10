@@ -1,6 +1,6 @@
+import type { Octokit } from '@octokit/rest';
 import { randomUUID } from 'node:crypto';
 import debug from 'debug';
-import { Octokit } from '@octokit/rest';
 
 interface TriggerWorkflowOptions {
   owner: string;
@@ -23,6 +23,16 @@ interface WaitForWorkflowOptions {
 }
 
 const log = debug('trigger-workflow');
+
+const importOctokit = async (): Promise<typeof Octokit> => {
+  const { Octokit } = await import('@octokit/rest');
+  return Octokit;
+};
+
+const createClient = async (token: string): Promise<Octokit> => {
+  const Octokit = await importOctokit();
+  return new Octokit({ auth: token });
+};
 
 const createId = (): string => {
   return randomUUID();
@@ -57,7 +67,7 @@ const findTriggerJob = async (octokit: Octokit, owner: string, repo: string, run
 export const getLatestWorkflowRun = async (options: TriggerWorkflowOptions, attempt: number = 0): Promise<number> => {
   const { after, inputs = {}, owner, repo, workflow_id, token, interval = 5_000, max_attempts = 5 } = options;
   const { trigger_id } = inputs;
-  const octokit = new Octokit({ auth: token });
+  const octokit = await createClient(token);
 
   // Fetch the latest workflow run to get the `run_id`
   const runs = await octokit.actions.listWorkflowRuns({
@@ -114,7 +124,7 @@ export const triggerWorkflow = async (options: TriggerWorkflowOptions): Promise<
     ...options.inputs
   };
 
-  const octokit = new Octokit({ auth: token });
+  const octokit = await createClient(token);
 
   log(`Triggering workflow "${workflow_id}" with trigger id:`, inputs.trigger_id);
   const response = await octokit.actions.createWorkflowDispatch({
@@ -135,7 +145,7 @@ export const triggerWorkflow = async (options: TriggerWorkflowOptions): Promise<
 export const waitForCompletion = async (options: WaitForWorkflowOptions): Promise<void> => {
   const { owner, repo, token, run_id, interval = 5_000 } = options;
 
-  const octokit = new Octokit({ auth: token });
+  const octokit = await createClient(token);
   const differed = {};
   const promise = new Promise<void>((resolve, reject) => {
     differed.resolve = resolve;
