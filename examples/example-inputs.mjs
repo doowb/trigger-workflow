@@ -11,7 +11,7 @@ async function main() {
     message: 'Hello from the message input!'
   };
 
-  const run_id = await triggerWorkflow({
+  const run = await triggerWorkflow({
     owner,
     repo,
     workflow_id,
@@ -23,7 +23,7 @@ async function main() {
   await waitForCompletion({
     owner,
     repo,
-    run_id,
+    run_id: run.run_id,
     token
   });
 

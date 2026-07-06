@@ -8,7 +8,7 @@ async function main() {
   const workflow_id = 'example-workflow.yml';
   const ref = 'main';
 
-  const run_id = await triggerWorkflow({
+  const run = await triggerWorkflow({
     owner,
     repo,
     workflow_id,
@@ -19,7 +19,7 @@ async function main() {
   await waitForCompletion({
     owner,
     repo,
-    run_id,
+    run_id: run.run_id,
     token
   });
 

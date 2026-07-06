@@ -8,6 +8,7 @@ interface TriggerWorkflowOptions {
   workflow_id: string;
   ref: string;
   inputs?: Record<string, unknown>; // updated type for inputs
+  trigger_id?: boolean | string;
   token: string;
   after?: number; // timestamp
   interval?: number; // milliseconds
@@ -20,6 +21,12 @@ interface WaitForWorkflowOptions {
   token: string;
   run_id: number;
   interval?: number; // milliseconds
+}
+
+interface TriggerWorkflowResult {
+  run_id: number;
+  run_url: string;
+  html_url: string;
 }
 
 const log = debug('trigger-workflow');
@@ -40,6 +47,14 @@ const createClient = async (token: string): Promise<Octokit> => {
 
 const createId = (): string => {
   return randomUUID();
+};
+
+const createRunResult = (
+  run_id: number,
+  run_url: string,
+  html_url: string
+): TriggerWorkflowResult => {
+  return { run_id, run_url, html_url };
 };
 
 const defaultHeaders = <T extends Record<string, unknown>>(
@@ -92,7 +107,7 @@ const findTriggerJob = async (
 export const getLatestWorkflowRun = async (
   options: TriggerWorkflowOptions,
   attempt: number = 0
-): Promise<number> => {
+): Promise<TriggerWorkflowResult | null> => {
   const {
     after,
     inputs = {},
@@ -133,14 +148,14 @@ export const getLatestWorkflowRun = async (
         log('Potential run ID:', run.id);
         const job = await findTriggerJob(octokit, owner, repo, run.id, trigger_id);
         if (job) {
-          return run.id;
+          return createRunResult(run.id, run.url, run.html_url);
         }
 
         // if max attempts have been reach, the trigger id might not have been set on a job
         // so we can just return the run id
         if (attempt >= max_attempts) {
           log('Max attempts reached. Using most recent run id...');
-          return run.id;
+          return createRunResult(run.id, run.url, run.html_url);
         }
       }
     }
@@ -156,18 +171,24 @@ export const getLatestWorkflowRun = async (
 
 export const triggerWorkflow = async (
   options: TriggerWorkflowOptions
-): Promise<number> => {
-  const { owner, repo, workflow_id, ref, token } = options;
+): Promise<TriggerWorkflowResult> => {
+  const { owner, repo, workflow_id, ref, token, trigger_id } = options;
   const after = addMinutes(new Date(), -5).getTime();
+  const fallbackTriggerId =
+    typeof trigger_id === 'string' ? trigger_id : trigger_id && createId();
 
   const inputs = {
-    trigger_id: createId(),
+    ...(fallbackTriggerId && { trigger_id: fallbackTriggerId }),
     ...options.inputs
   };
 
   const octokit = await createClient(token);
 
-  log(`Triggering workflow "${workflow_id}" with trigger id:`, inputs.trigger_id);
+  if (fallbackTriggerId) {
+    log(`Triggering workflow "${workflow_id}" with trigger id:`, fallbackTriggerId);
+  } else {
+    log(`Triggering workflow "${workflow_id}"`);
+  }
   const response = await octokit.actions.createWorkflowDispatch(
     defaultHeaders({
       owner,
@@ -182,7 +203,24 @@ export const triggerWorkflow = async (
     throw new Error(`Failed to trigger workflow: ${response.status}`);
   }
 
-  return getLatestWorkflowRun({ after, ...options, inputs });
+  if (typeof response.data?.workflow_run_id === 'number') {
+    return createRunResult(
+      response.data.workflow_run_id,
+      response.data.run_url,
+      response.data.html_url
+    );
+  }
+
+  if (fallbackTriggerId) {
+    const run = await getLatestWorkflowRun({ after, ...options, inputs });
+    if (run) {
+      return run;
+    }
+  }
+
+  throw new Error(
+    'GitHub did not return workflow run metadata. Pass `trigger_id: true` to enable workflow run lookup fallback.'
+  );
 };
 
 export const waitForCompletion = async (
