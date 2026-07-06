@@ -23,6 +23,10 @@ interface WaitForWorkflowOptions {
 }
 
 const log = debug('trigger-workflow');
+const GITHUB_API_VERSION = '2026-03-10';
+const DEFAULT_HEADERS = {
+  'X-GitHub-Api-Version': GITHUB_API_VERSION
+};
 
 const importOctokit = async (): Promise<typeof Octokit> => {
   const { Octokit } = await import('@octokit/rest');
@@ -38,18 +42,39 @@ const createId = (): string => {
   return randomUUID();
 };
 
-const pause = (ms: number): Promise<void> => new Promise(resolve => setTimeout(resolve, ms));
+const defaultHeaders = <T extends Record<string, unknown>>(
+  options: T
+): T & { headers: typeof DEFAULT_HEADERS } => {
+  return {
+    ...options,
+    headers: {
+      ...DEFAULT_HEADERS,
+      ...options?.headers
+    }
+  };
+};
+
+const pause = (ms: number): Promise<void> =>
+  new Promise(resolve => setTimeout(resolve, ms));
 
 const addMinutes = (date: Date, minutes: number): Date => {
   return new Date(date.getTime() + minutes * 60000);
 };
 
-const findTriggerJob = async (octokit: Octokit, owner: string, repo: string, run_id: number, trigger_id: string): Promise<number> => {
-  const { data } = await octokit.actions.listJobsForWorkflowRun({
-    owner,
-    repo,
-    run_id
-  });
+const findTriggerJob = async (
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  run_id: number,
+  trigger_id: string
+): Promise<number> => {
+  const { data } = await octokit.actions.listJobsForWorkflowRun(
+    defaultHeaders({
+      owner,
+      repo,
+      run_id
+    })
+  );
 
   if (data.total_count > 0) {
     // find the job with a step that matches the trigger_id
@@ -64,18 +89,32 @@ const findTriggerJob = async (octokit: Octokit, owner: string, repo: string, run
   }
 };
 
-export const getLatestWorkflowRun = async (options: TriggerWorkflowOptions, attempt: number = 0): Promise<number> => {
-  const { after, inputs = {}, owner, repo, workflow_id, token, interval = 5_000, max_attempts = 5 } = options;
+export const getLatestWorkflowRun = async (
+  options: TriggerWorkflowOptions,
+  attempt: number = 0
+): Promise<number> => {
+  const {
+    after,
+    inputs = {},
+    owner,
+    repo,
+    workflow_id,
+    token,
+    interval = 5_000,
+    max_attempts = 5
+  } = options;
   const { trigger_id } = inputs;
   const octokit = await createClient(token);
 
   // Fetch the latest workflow run to get the `run_id`
-  const runs = await octokit.actions.listWorkflowRuns({
-    owner,
-    repo,
-    workflow_id,
-    per_page: 100
-  });
+  const runs = await octokit.actions.listWorkflowRuns(
+    defaultHeaders({
+      owner,
+      repo,
+      workflow_id,
+      per_page: 100
+    })
+  );
 
   if (runs.data.workflow_runs.length === 0) {
     if (attempt >= max_attempts) {
@@ -115,7 +154,9 @@ export const getLatestWorkflowRun = async (options: TriggerWorkflowOptions, atte
   return null;
 };
 
-export const triggerWorkflow = async (options: TriggerWorkflowOptions): Promise<number> => {
+export const triggerWorkflow = async (
+  options: TriggerWorkflowOptions
+): Promise<number> => {
   const { owner, repo, workflow_id, ref, token } = options;
   const after = addMinutes(new Date(), -5).getTime();
 
@@ -127,22 +168,26 @@ export const triggerWorkflow = async (options: TriggerWorkflowOptions): Promise<
   const octokit = await createClient(token);
 
   log(`Triggering workflow "${workflow_id}" with trigger id:`, inputs.trigger_id);
-  const response = await octokit.actions.createWorkflowDispatch({
-    owner,
-    repo,
-    workflow_id,
-    ref,
-    inputs
-  });
+  const response = await octokit.actions.createWorkflowDispatch(
+    defaultHeaders({
+      owner,
+      repo,
+      workflow_id,
+      ref,
+      inputs
+    })
+  );
 
-  if (response.status !== 204) {
+  if (response.status < 200 || response.status >= 400) {
     throw new Error(`Failed to trigger workflow: ${response.status}`);
   }
 
   return getLatestWorkflowRun({ after, ...options, inputs });
 };
 
-export const waitForCompletion = async (options: WaitForWorkflowOptions): Promise<void> => {
+export const waitForCompletion = async (
+  options: WaitForWorkflowOptions
+): Promise<void> => {
   const { owner, repo, token, run_id, interval = 5_000 } = options;
 
   const octokit = await createClient(token);
@@ -153,11 +198,13 @@ export const waitForCompletion = async (options: WaitForWorkflowOptions): Promis
   });
 
   const checkRun = async (): Promise<void> => {
-    const { data: run } = await octokit.actions.getWorkflowRun({
-      owner,
-      repo,
-      run_id
-    });
+    const { data: run } = await octokit.actions.getWorkflowRun(
+      defaultHeaders({
+        owner,
+        repo,
+        run_id
+      })
+    );
 
     if (run.status === 'completed') {
       if (run.conclusion === 'success') {
